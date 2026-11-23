@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/><meta name="theme-color" content="#101b2b"/><title>School Life Simulator</title></head>
+<body><div id="app"><canvas id="renderCanvas"></canvas>
+<div id="topbar"><div class="brand"><span class="logo">S</span><div><b>SCHOOL LIFE</b><small>SIMULATOR · EARLY ACCESS</small></div></div><div class="stats"><span>📅 <b id="weekday">Pazartesi</b></span><span>🕗 <b id="clock">07:00</b></span><span>🪙 <b id="cash">₺50</b></span></div></div>
+<div id="left-panel"><div class="eyebrow">GÜNLÜK HEDEF</div><h2 id="questTitle">İlk okul günü</h2><p id="questText">Evden çık ve okulun ana kapısına git.</p><div class="meter"><label>Enerji <b id="energyText">100%</b></label><div><i id="energyBar"></i></div></div><div class="meter"><label>Tokluk <b id="hungerText">85%</b></label><div><i id="hungerBar"></i></div></div><div class="location" id="location">📍 Aile evi</div></div>
+<div id="crosshair">+</div><div id="toast"></div><div id="bottom-help">WASD hareket · SHIFT koş · SPACE zıpla · E etkileşim · C kamera</div>
+<div id="mobile-ui"><div id="stick"><button data-dir="up">▲</button><button data-dir="left">◀</button><button data-dir="down">▼</button><button data-dir="right">▶</button></div><div class="mobile-actions"><button id="jump">ZIPLA</button><button id="use">ETKİLEŞ</button></div></div>
+</div><script type="module" src="/src/main.ts"></script></body></html>

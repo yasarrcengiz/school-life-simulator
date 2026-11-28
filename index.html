@@ -148,7 +148,7 @@ function playAtHome(){if(energy<8){toast('Oyun oynayacak enerjin kalmadı. Biraz
 function enterInterior(which){
  currentInterior=which;
  const p=interiorOrigin[which];player.position.set(p.x,p.y||0,p.z+5.4);
- yaw=0;toast(which==='shop'?'Markete girdin. Raflardan ürün seç ve kasada ödeme yap.':'Eve girdin. Yatağa, çalışma masasına veya oyun konsoluna yaklaş.');
+ yaw=0;const messages={shop:'Markete girdin. Raflardan ürün seç ve kasada ödeme yap.',home:'Eve girdin. Yatağa, çalışma masasına veya oyun konsoluna yaklaş.',school:'Okula girdin. Sınıf sıralarını ve ders panosunu keşfet.',sports:'Spor salonuna girdin. Ekipmanlara yaklaşarak spor yap.'};toast(messages[which]||'Binaya girdin.');
 }
 function leaveInterior(){const previous=currentInterior;currentInterior='town';const exits={shop:[17,-21],home:[-18,12],school:[-15,-27],sports:[20,17]};const e=exits[previous]||[-18,12];player.position.set(e[0],0,e[1]);yaw=0;toast('Kapıdan dışarı çıktın.');}
 // Rideable bicycle and moving traffic

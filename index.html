@@ -52,7 +52,7 @@ let yaw=0,pitch=-.22,first=false,velocityY=0,onGround=true,energy=100,hunger=85,
 
 // --- INTERACTIVE 3D INTERIORS ---
 let currentInterior='town', shoppingCart=[], studyPoints=0, happiness=70, sleepCount=0;
-const interiorOrigin={shop:{x:100,z:0},home:{x:130,z:0}};
+const interiorOrigin={shop:{x:100,z:0},home:{x:130,z:0},school:{x:160,z:0},sports:{x:190,z:0}};
 function roomFloor(cx,cz,w,d,color=0xd7d1c3){box(cx,.02,cz,w,.18,d,mat(color),false)}
 function wall(cx,cz,w,h,d,color=0xe7e0d2){box(cx,h/2,cz,w,h,d,mat(color),false)}
 function makeRoom(cx,cz,w,d){
@@ -86,6 +86,10 @@ furniture(shop.x+6,.65,shop.z-4,2.5,1.3,1.2,0x4a3327);
 furniture(shop.x+6,1.35,shop.z-4,.15,.9,1.25,0x4f9b72);
 const registerMesh=furniture(shop.x+6,.95,shop.z-4,1.2,.25,.8,0x29384d);
 makeRoom(home.x,home.z,18,15);
+makeRoom(160,0,22,17,0xd9e0e5);makeRoom(190,0,22,17,0xc6d5c4);
+for(let rz of [-4,0,4])for(let rx of [-6,-2,2,6]){furniture(160+rx,.48,rz,1.35,.18,1,0x98633d);furniture(160+rx,.85,rz+.15,.18,.8,.18,0x765039)}
+furniture(160,1.5,-7,8,2.2,.25,0x397e9a);furniture(160,1.1,-8,3,.3,1.2,0x765039);
+furniture(190,.12,0,18,.08,13,0x8dbb83);furniture(190,1.2,-6,4,2,.2,0xece8d9);furniture(183,.65,5,1.2,1.3,1.2,0xd94f45);furniture(197,.65,5,1.2,1.3,1.2,0x4c8fc5);
 // Bedroom: bed, bedside table and lamp
 furniture(home.x-4,.42,home.z-3,3.6,.65,4.4,0x765039);
 furniture(home.x-4,.82,home.z-4.1,3.5,.22,2.1,0xf4f0e7);
@@ -107,6 +111,9 @@ furniture(home.x+5,.35,home.z+2,1.2,.5,1.2,0x765039);
 const interiorObjects=[
  {x:shop.x,z:6.25,r:2.4,name:'Marketten çıkış',act:leaveInterior},
  {x:home.x,z:6.25,r:2.4,name:'Evden çıkış',act:leaveInterior},
+ {x:160,z:7.25,r:2.8,name:'Okuldan çıkış',act:leaveInterior},{x:190,z:7.25,r:2.8,name:'Spor salonundan çıkış',act:leaveInterior},
+ {x:160,z:-6,r:2.5,name:'Sınıf panosu',act:()=>{studyPoints++;toast('Ders panosunu inceledin. Öğrenme puanı +1.')}},
+ {x:190,z:5,r:2.5,name:'Spor ekipmanları',act:()=>{energy=Math.max(0,energy-8);happiness=Math.min(100,happiness+12);toast('Spor yaptın. Mutluluk arttı.');updateHud()}},
  {x:shop.x-4,z:shop.z-1.8,r:1.35,name:'Meyve suyu',act:()=>buyProduct('Meyve suyu',18)},
  {x:shop.x-4,z:shop.z-.65,r:1.35,name:'Sandviç',act:()=>buyProduct('Sandviç',35)},
  {x:shop.x-4,z:shop.z+.5,r:1.35,name:'Çikolata',act:()=>buyProduct('Çikolata',22)},
@@ -140,10 +147,10 @@ function studyAtDesk(){if(energy<12){toast('Çok yorgunsun. Önce yatağında uy
 function playAtHome(){if(energy<8){toast('Oyun oynayacak enerjin kalmadı. Biraz uyu.');return}energy=Math.max(0,energy-8);happiness=Math.min(100,happiness+18);toast('Konsolun başında oyun oynadın. Mutluluk arttı!');updateHud()}
 function enterInterior(which){
  currentInterior=which;
- const p=interiorOrigin[which];player.position.set(p.x,p.y||0,p.z+4.7);
+ const p=interiorOrigin[which];player.position.set(p.x,p.y||0,p.z+5.4);
  yaw=0;toast(which==='shop'?'Markete girdin. Raflardan ürün seç ve kasada ödeme yap.':'Eve girdin. Yatağa, çalışma masasına veya oyun konsoluna yaklaş.');
 }
-function leaveInterior(){const previous=currentInterior;currentInterior='town';player.position.set(previous==='shop'?17:-18,0,previous==='shop'?-21:12);toast('Kapıdan dışarı çıktın.');}
+function leaveInterior(){const previous=currentInterior;currentInterior='town';const exits={shop:[17,-21],home:[-18,12],school:[-15,-27],sports:[20,17]};const e=exits[previous]||[-18,12];player.position.set(e[0],0,e[1]);yaw=0;toast('Kapıdan dışarı çıktın.');}
 // Rideable bicycle and moving traffic
 let ridingBike=false;
 const bike=new THREE.Group();scene.add(bike);
@@ -155,23 +162,27 @@ function bikeBar(a,b,r=.055){const d=new THREE.Vector3().subVectors(b,a);const m
 const A=new THREE.Vector3(0,.55,-.78),B=new THREE.Vector3(0,.55,.78),C=new THREE.Vector3(0,1.05,-.15),D=new THREE.Vector3(0,1.05,.25);
 bikeBar(A,C);bikeBar(C,B);bikeBar(C,D);bikeBar(D,A);bikeBar(D,new THREE.Vector3(0,1.25,.48));bikeBar(new THREE.Vector3(0,1.25,.48),new THREE.Vector3(0,1.25,.68),.07);
 bike.position.set(-13,0,15);
-const traffic=[];
+const traffic=[];let crashCooldown=0;
 function makeCar(x,z,dir,color,speed){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(2.05,.72,4),mat(color,.55));body.position.y=.72;body.castShadow=true;g.add(body);const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.55,.72,1.9),new THREE.MeshStandardMaterial({color:0x9bc8d8,roughness:.25,metalness:.12}));cabin.position.set(0,1.35,-.15);g.add(cabin);for(const wx of [-1,1])for(const wz of [-1.25,1.25]){const wh=new THREE.Mesh(new THREE.CylinderGeometry(.34,.34,.22,12),wheelMat);wh.rotation.z=Math.PI/2;wh.position.set(wx,.38,wz);g.add(wh);}g.position.set(x,0,z);g.rotation.y=dir===1?0:Math.PI;scene.add(g);traffic.push({g,dir,speed});}
 for(let i=0;i<7;i++)makeCar(i%2?-3.3:3.3,-95+i*29,i%2?1:-1,[0x3d79b5,0xe1b34c,0xeeeeea,0x4a555f,0xc95d4c,0x5d9a72,0x8d75b7][i],5+i%3);
-function updateTraffic(dt){for(const t of traffic){t.g.position.z+=t.dir*t.speed*dt;if(t.g.position.z>112)t.g.position.z=-112;if(t.g.position.z< -112)t.g.position.z=112;const dx=player.position.x-t.g.position.x,dz=player.position.z-t.g.position.z;if(currentInterior==='town'&&Math.abs(dx)<1.45&&Math.abs(dz)<2.1){player.position.x+=Math.sign(dx||1)*2.8;player.position.z+=Math.sign(dz||1)*2.8;energy=Math.max(0,energy-5);ridingBike=false;bike.visible=true;toast('Trafik kazası! Biraz sarsıldın ama güvendesin. Ölüm yok.');}}}
+function updateTraffic(dt){crashCooldown=Math.max(0,crashCooldown-dt);for(const t of traffic){t.g.position.z+=t.dir*t.speed*dt;if(t.g.position.z>112)t.g.position.z=-112;if(t.g.position.z< -112)t.g.position.z=112;const dx=player.position.x-t.g.position.x,dz=player.position.z-t.g.position.z;if(currentInterior==='town'&&crashCooldown<=0&&Math.abs(dx)<1.45&&Math.abs(dz)<2.1){player.position.x+=Math.sign(dx||1)*2.8;player.position.z+=Math.sign(dz||1)*2.8;energy=Math.max(0,energy-5);ridingBike=false;player.position.y=0;bike.visible=true;crashCooldown=2.2;toast('Trafik kazası! Karakter güvende, kısa süreli sendeledi.');}}}
 function mountBike(){if(currentInterior!=='town')return;if(ridingBike){ridingBike=false;player.position.y=0;bike.visible=true;toast('Bisikletten indin.');return;}ridingBike=true;bike.visible=true;bike.position.copy(player.position);bike.position.y=0;player.position.y=.12;toast('Bisiklete bindin! WASD ile sür, E ile in.');}
+function makeNameplate(x,y,z,label,color){const cv=document.createElement('canvas');cv.width=512;cv.height=128;const cx=cv.getContext('2d');cx.fillStyle='#'+color.toString(16).padStart(6,'0');cx.fillRect(0,0,512,128);cx.strokeStyle='#f6d37a';cx.lineWidth=8;cx.strokeRect(5,5,502,118);cx.fillStyle='#fff';cx.font='bold 48px Arial';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(label,256,66);const tex=new THREE.CanvasTexture(cv);tex.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(5.5,1.35),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));m.position.set(x,y,z);scene.add(m)}
+makeNameplate(-15,4.1,-25.25,'OKUL',0x244e78);makeNameplate(17,3.4,-18.25,'MARKET',0x356b49);makeNameplate(-18,3.4,13.9,'AİLE EVİ',0x7b4b35);makeNameplate(20,3.4,17.75,'SPOR ALANI',0x426c91);
 const places=[
  {x:17,z:-18,r:3.3,name:'Market kapısı',act:()=>enterInterior('shop')},
  {x:-13,z:15,r:2.5,name:'Bisiklet',act:mountBike},
  {x:-18,z:14,r:3.3,name:'Ev kapısı',act:()=>enterInterior('home')},
- {x:-15,z:-19,r:9,name:'Okul',act:()=>{document.querySelector('#questTitle').textContent='Okula hoş geldin!';document.querySelector('#questText').textContent='Okul bahçesini keşfet. Sıradaki hedef sınıfa girmek.';toast('Okula ulaştın!');money+=20;updateHud()}},
- {x:20,z:23,r:8,name:'Spor alanı',act:()=>{energy=Math.max(0,energy-8);happiness=Math.min(100,happiness+8);toast('Spor yaptın. Enerji azaldı, mutluluk arttı.');updateHud()}}
+ {x:-15,z:-25,r:3.5,name:'Okul kapısı',act:()=>enterInterior('school')},{x:20,z:18,r:3.5,name:'Spor alanı kapısı',act:()=>enterInterior('sports')},
+ {x:-15,z:-19,r:2,name:'Okul bahçesi',act:()=>toast('Okulun ana kapısına yaklaş ve E tuşuna bas.')},
+ {x:20,z:23,r:2,name:'Spor alanı',act:()=>toast('Spor salonuna girmek için kapıya yaklaş ve E tuşuna bas.')}}
 ];
 
 function updateHud(){document.querySelector('#money').textContent='₺'+money;document.querySelector('#energyText').textContent=Math.round(energy)+'%';document.querySelector('#energyBar').style.width=energy+'%';document.querySelector('#hungerText').textContent=Math.round(hunger)+'%';document.querySelector('#hungerBar').style.width=hunger+'%'}function interact(){if(currentInterior!=='town' && player.position.z>=5.8){leaveInterior();return}if(near)near.act();else if(currentInterior!=='town'&&player.position.z>5.4)leaveInterior();else toast('Yakında etkileşime geçebileceğin bir nesne yok.')}
 document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')interact();if(e.code==='KeyC'){first=!first;toast(first?'Birinci şahıs kamera':'Üçüncü şahıs kamera')}});document.addEventListener('keyup',e=>keys[e.code]=false);
 renderer.domElement.addEventListener('click',()=>{if(!matchMedia('(pointer:coarse)').matches)renderer.domElement.requestPointerLock?.()});document.addEventListener('mousemove',e=>{if(document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch=Math.max(-.9,Math.min(.35,pitch-e.movementY*.0018))}});
-document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});document.querySelector('[data-action=jump]').onclick=()=>{if(onGround){velocityY=7;onGround=false}};document.querySelector('[data-action=run]').onpointerdown=()=>keys.ShiftLeft=true;document.querySelector('[data-action=run]').onpointerup=()=>keys.ShiftLeft=false;document.querySelector('[data-action=use]').onclick=interact;document.querySelector('#interact').onclick=interact;
+document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture?.(e.pointerId);keys[k]=true});['pointerup','pointerleave','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});document.querySelector('[data-action=jump]').onclick=()=>{if(onGround){velocityY=7;onGround=false}};document.querySelector('[data-action=run]').onpointerdown=()=>keys.ShiftLeft=true;document.querySelector('[data-action=run]').onpointerup=()=>keys.ShiftLeft=false;document.querySelector('[data-action=use]').onclick=interact;
+let touchLook=null;renderer.domElement.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&e.clientX>innerWidth*.38){touchLook={x:e.clientX,y:e.clientY};renderer.domElement.setPointerCapture?.(e.pointerId)}});renderer.domElement.addEventListener('pointermove',e=>{if(e.pointerType==='touch'&&touchLook){yaw-=(e.clientX-touchLook.x)*.006;pitch=Math.max(-.85,Math.min(.3,pitch-(e.clientY-touchLook.y)*.004));touchLook={x:e.clientX,y:e.clientY}}});['pointerup','pointercancel'].forEach(ev=>renderer.domElement.addEventListener(ev,()=>touchLook=null));document.querySelector('#interact').onclick=interact;
 function clampWorld(){if(currentInterior==='town'){player.position.x=Math.max(-105,Math.min(105,player.position.x));player.position.z=Math.max(-105,Math.min(105,player.position.z))}else{const c=interiorOrigin[currentInterior];player.position.x=Math.max(c.x-7.7,Math.min(c.x+7.7,player.position.x));player.position.z=Math.max(c.z-6.2,Math.min(c.z+6.8,player.position.z))}}const clockEl=document.querySelector('#clock');let last=performance.now(),walkT=0;
 function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;let forward=(keys.KeyW?1:0)-(keys.KeyS?1:0),side=(keys.KeyD?1:0)-(keys.KeyA?1:0),speed=ridingBike?13:(keys.ShiftLeft||keys.ShiftRight?9:5.2);let dir=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,Math.sin(yaw)),move=dir.multiplyScalar(forward).add(right.multiplyScalar(side));if(move.length()>0){move.normalize();player.position.addScaledVector(move,speed*dt);if(ridingBike){bike.position.copy(player.position);bike.position.y=0;bike.rotation.y=player.rotation.y;}player.rotation.y=Math.atan2(move.x,move.z);walkT+=dt*speed;legs[0].rotation.x=Math.sin(walkT)*.55;legs[1].rotation.x=-Math.sin(walkT)*.55;if(keys.ShiftLeft||keys.ShiftRight)energy=Math.max(0,energy-dt*1.5)}else legs.forEach(l=>l.rotation.x=0);
 if(keys.Space&&onGround&&!ridingBike){velocityY=7;onGround=false}if(!onGround){velocityY-=18*dt;player.position.y+=velocityY*dt;if(player.position.y<=0){player.position.y=0;velocityY=0;onGround=true}}clampWorld();if(currentInterior==='town')updateTraffic(dt);minute+=dt*1.5;if(minute>=1440)minute=360;clockEl.textContent='Pazartesi · '+String(Math.floor(minute/60)).padStart(2,'0')+':'+String(Math.floor(minute%60)).padStart(2,'0');hunger=Math.max(0,hunger-dt*.035);updateHud();
